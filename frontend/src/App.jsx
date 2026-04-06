@@ -1,16 +1,12 @@
 import React, { useState } from 'react';
-import { Leaf, Droplet, Sun, Beaker, Activity, CheckCircle, ChevronRight, Sprout, Languages, MapPin } from 'lucide-react';
+import { Leaf, Droplet, Sun, Beaker, Activity, CheckCircle, ChevronRight, Sprout, Languages, MapPin, AlertCircle } from 'lucide-react';
 
-// Dictionary for translations
 const i18n = {
   en: {
     appTitle: "Smart Crop Recommendation System",
-    crop: "Crop",
-    wheat: "Wheat", paddy: "Paddy", maize: "Maize", sugarcane: "Sugarcane",
-    soil: "Soil Type",
-    loam: "Loam", black: "Black", red: "Red", sandy: "Sandy",
-    season: "Season",
-    kharif: "Kharif", rabi: "Rabi", zaid: "Zaid",
+    crop: "Crop", wheat: "Wheat", paddy: "Paddy", maize: "Maize", sugarcane: "Sugarcane",
+    soil: "Soil Type", loam: "Loam", black: "Black", red: "Red", sandy: "Sandy",
+    season: "Season", kharif: "Kharif", rabi: "Rabi", zaid: "Zaid",
     rainfall: "Rainfall", mm: "mm", mmYr: "mm/yr",
     temperature: "Temperature",
     fertilizer: "Fertilizer", kgHa: "kg/ha",
@@ -21,7 +17,7 @@ const i18n = {
     rainfed: "Rainfed", canal: "Canal", tubewell: "Tube well", drip: "Drip Irrigation",
     analyzeBtn: "Analyze and Get Recommendations",
     analyzingBtn: "Analyzing...",
-    disclaimer: "* These results are based on artificial intelligence.",
+    disclaimer: "* These results are based on machine learning models.",
     emptyTitle: "Enter your farm details",
     emptyDesc: "Fill in your farm details on the left and click 'Analyze'. AgriAssist will give you scientific recommendations to increase your crop yield.",
     tabSummary: "Summary",
@@ -34,9 +30,6 @@ const i18n = {
     whatIfDesc: "These changes have immense potential to improve your yield.",
     autoDetect: "Auto-Detect Weather",
     detecting: "Detecting...",
-    locSuccess: "Live weather data fetched successfully!",
-    locError: "Failed to get location. Please allow browser permissions.",
-    weatherError: "Failed to fetch weather data.",
     suggestedImprovements: "Suggested Improvements",
     changeIrrigation: "Change Irrigation System",
     optimizeFertilizer: "Optimize Fertilizer",
@@ -45,21 +38,27 @@ const i18n = {
     idealFertilizerTitle: "Ideal Fertilizer Recommendation",
     verdictTitle: "Verdict",
     explanationTitle: "Why this recommendation?",
-    // Result specific translations
-    urea: "Urea",
-    modSuitable: "Moderately Suitable",
-    expYield: "Predicted yield is 2.66 tons/hectare",
-    expCost: "Fertilizer is cost-effective",
-    expCond: "Soil and irrigation conditions are suitable"
+    finalScore: "Final Score",
+    costScore: "Cost Score",
+    penaltyScore: "Condition Penalty",
+    errorTitle: "Could not connect to backend",
+    errorDesc: "Make sure your Flask server is running at http://localhost:5000",
+    // Verdict keys returned by backend
+    verdictHighly: "Highly Recommended",
+    verdictRecommended: "Recommended",
+    verdictModerate: "Moderately Suitable",
+    verdictNot: "Not Recommended",
+    // Explanation keys returned by backend
+    expCostOk: "Fertilizer usage is cost-effective",
+    expCostHigh: "Fertilizer usage is relatively high",
+    expCondOk: "Soil and irrigation conditions are suitable",
+    expCondBad: "Some conditions reduce effectiveness (low pH or flood irrigation)",
   },
   hi: {
     appTitle: "आधुनिक खेती के लिए स्मार्ट फसल सुझाव प्रणाली",
-    crop: "फसल",
-    wheat: "गेहूं", paddy: "धान", maize: "मक्का", sugarcane: "गन्ना",
-    soil: "मिट्टी का प्रकार",
-    loam: "दोमट", black: "काली", red: "लाल", sandy: "रेतीली",
-    season: "फसल का मौसम",
-    kharif: "खरीफ", rabi: "रबी", zaid: "जायद",
+    crop: "फसल", wheat: "गेहूं", paddy: "धान", maize: "मक्का", sugarcane: "गन्ना",
+    soil: "मिट्टी का प्रकार", loam: "दोमट", black: "काली", red: "लाल", sandy: "रेतीली",
+    season: "फसल का मौसम", kharif: "खरीफ", rabi: "रबी", zaid: "जायद",
     rainfall: "वर्षा", mm: "मिमी", mmYr: "मिमी/वर्ष",
     temperature: "तापमान",
     fertilizer: "उर्वरक", kgHa: "किग्रा/हे.",
@@ -70,7 +69,7 @@ const i18n = {
     rainfed: "वर्षा पर निर्भर", canal: "नहर", tubewell: "नलकूप", drip: "टपक सिंचाई (ड्रिप)",
     analyzeBtn: "विश्लेषण करें और सुझाव पाएं",
     analyzingBtn: "विश्लेषण हो रहा है...",
-    disclaimer: "* यह परिणाम कृत्रिम बुद्धिमत्ता पर आधारित हैं।",
+    disclaimer: "* यह परिणाम मशीन लर्निंग मॉडल पर आधारित हैं।",
     emptyTitle: "अपने खेत की जानकारी भरें",
     emptyDesc: "बाईं तरफ अपने खेत की जानकारी भरें और 'विश्लेषण करें' पर क्लिक करें। किसान मित्र आपको आपकी फसल की उपज बढ़ाने के लिए वैज्ञानिक सुझाव देगा।",
     tabSummary: "सारांश",
@@ -83,9 +82,6 @@ const i18n = {
     whatIfDesc: "इन बदलावों से आपकी उपज में सुधार की अपार संभावना है।",
     autoDetect: "मौसम स्वतः प्राप्त करें",
     detecting: "खोजा जा रहा...",
-    locSuccess: "लाइव मौसम डेटा सफलतापूर्वक प्राप्त किया गया!",
-    locError: "लोकेशन प्राप्त करने में विफल। कृपया ब्राउज़र परमिशन दें।",
-    weatherError: "मौसम डेटा लाने में विफल।",
     suggestedImprovements: "सुझाए गए सुधार",
     changeIrrigation: "सिंचाई प्रणाली बदलें",
     optimizeFertilizer: "उर्वरक अनुकूलित करें",
@@ -94,54 +90,49 @@ const i18n = {
     idealFertilizerTitle: "आदर्श उर्वरक अनुशंसा",
     verdictTitle: "निर्णय",
     explanationTitle: "यह सुझाव क्यों?",
-    // Result specific translations
-    urea: "यूरिया (Urea)",
-    modSuitable: "सामान्य रूप से उपयुक्त",
-    expYield: "अनुमानित उपज 2.66 टन/हेक्टेयर है",
-    expCost: "उर्वरक किफायती है",
-    expCond: "मिट्टी और सिंचाई की स्थिति उपयुक्त है"
+    finalScore: "अंतिम स्कोर",
+    costScore: "लागत स्कोर",
+    penaltyScore: "स्थिति दंड",
+    errorTitle: "बैकएंड से कनेक्ट नहीं हो सका",
+    errorDesc: "सुनिश्चित करें कि Flask सर्वर http://localhost:5000 पर चल रहा है",
+    // Verdict keys returned by backend
+    verdictHighly: "अत्यधिक अनुशंसित",
+    verdictRecommended: "अनुशंसित",
+    verdictModerate: "सामान्य रूप से उपयुक्त",
+    verdictNot: "अनुशंसित नहीं",
+    // Explanation keys returned by backend
+    expCostOk: "उर्वरक उपयोग किफायती है",
+    expCostHigh: "उर्वरक उपयोग अपेक्षाकृत अधिक है",
+    expCondOk: "मिट्टी और सिंचाई की स्थिति उपयुक्त है",
+    expCondBad: "कुछ परिस्थितियाँ प्रभावशीलता कम करती हैं (कम pH या बाढ़ सिंचाई)",
   }
 };
 
 export default function App() {
   const [lang, setLang] = useState('hi');
-  const t = i18n[lang]; 
+  const t = i18n[lang];
 
   const [loading, setLoading] = useState(false);
   const [locLoading, setLocLoading] = useState(false);
   const [results, setResults] = useState(null);
+  const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('summary');
 
-  // Initial Form State 
   const [formData, setFormData] = useState({
-    crop: 'wheat',
-    soil: 'loam',
-    season: 'kharif',
-    rainfall: 200,
-    temperature: 30,
-    fertilizer: 120,
-    pesticide: 8.0,
-    area: 5,
-    ph: 6.5,
-    irrigation: 'rainfed'
+    crop: 'wheat', soil: 'loam', season: 'kharif',
+    rainfall: 200, temperature: 30, fertilizer: 120,
+    pesticide: 8.0, area: 5, ph: 6.5, irrigation: 'rainfed'
   });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const toggleLanguage = () => {
-    setLang(prev => prev === 'hi' ? 'en' : 'hi');
-  };
+  const toggleLanguage = () => setLang(prev => prev === 'hi' ? 'en' : 'hi');
 
   const fetchWeatherAndLocation = () => {
-    if (!navigator.geolocation) {
-      return;
-    }
+    if (!navigator.geolocation) return;
     setLocLoading(true);
     navigator.geolocation.getCurrentPosition(async (position) => {
       const { latitude, longitude } = position.coords;
@@ -154,74 +145,134 @@ export default function App() {
           temperature: data.current.temperature_2m,
           rainfall: Math.min(1000, Math.floor(data.current.precipitation * 50 + 300))
         }));
-      } catch (error) {
-        console.error(error);
+      } catch (err) {
+        console.error(err);
       } finally {
         setLocLoading(false);
       }
-    }, (err) => {
-      setLocLoading(false);
-    });
+    }, () => setLocLoading(false));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
+    setResults(null);
 
     try {
       const response = await fetch('http://localhost:5000/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          soil_pH: formData.ph,
+          soil_pH: parseFloat(formData.ph),
           irrigation_type: formData.irrigation,
-          Annual_Rainfall: formData.rainfall,
-          Area: formData.area,
-          Pesticide: formData.pesticide
+          Annual_Rainfall: parseFloat(formData.rainfall),
+          Area: parseFloat(formData.area),
+          Pesticide: parseFloat(formData.pesticide),
+          Crop: formData.crop,
+          Season: formData.season,
         })
       });
 
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || `Server error ${response.status}`);
+      }
+
       const data = await response.json();
+
+      if (!data.success) throw new Error(data.error || "Unknown error from model");
+
+      // data.data comes directly from hybrid_service.recommend()
+      // Shape: { ideal_fertilizer, verdict, explanation: [...], details: { ml_prediction, cost_score, penalty, final_score } }
       setResults(data.data);
       setActiveTab('summary');
-    } catch (error) {
-      // Mock data for demonstration - using keys for translation
-      setResults({
-        details: { ml_prediction: 45.2 },
-        summary_unit: lang === 'en' ? 'Q/ha' : 'क्विंटल/हेक्टेयर',
-        summary_status: lang === 'en' ? 'Optimal' : 'सर्वोत्तम',
-        ideal_fertilizer_key: "urea",
-        verdict_key: "modSuitable",
-        explanation_keys: ["expYield", "expCost", "expCond"],
-        scenarios: [
-          { type: 'irrigation', title_key: 'changeIrrigation', old_key: 'rainfed', new_key: 'drip', impact_en: 'High Impact', impact_hi: 'अधिक प्रभाव' },
-          { type: 'fertilizer', title_key: 'optimizeFertilizer', old_val: formData.fertilizer + ' kg', new_val: (parseInt(formData.fertilizer) + 20) + ' kg', impact_en: 'High Impact', impact_hi: 'अधिक प्रभाव' },
-          { type: 'additional_irrigation', title_key: 'increaseIrrigation', old_val: formData.rainfall + ' mm', new_val: (parseInt(formData.rainfall) + 100) + ' mm', impact_en: 'Medium Impact', impact_hi: 'मध्यम प्रभाव' }
-        ]
-      });
+
+    } catch (err) {
+      console.error("❌ Fetch error:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
+
+  // Derive scenario cards from actual model output
+  const buildScenarios = (results) => {
+    if (!results) return [];
+    const d = results.details;
+    return [
+      {
+        type: 'irrigation',
+        title: lang === 'hi' ? 'सिंचाई प्रणाली बदलें' : 'Change Irrigation System',
+        old_val: t[formData.irrigation] || formData.irrigation,
+        new_val: lang === 'hi' ? 'टपक सिंचाई (ड्रिप)' : 'Drip Irrigation',
+        impact: lang === 'hi' ? 'अधिक प्रभाव' : 'High Impact',
+        description: lang === 'hi'
+          ? 'ड्रिप सिंचाई पानी की बर्बादी कम करती है और जड़ों तक सीधे पानी पहुँचाती है।'
+          : 'Drip irrigation reduces water wastage and delivers water directly to roots.',
+      },
+      {
+        type: 'fertilizer',
+        title: lang === 'hi' ? 'उर्वरक अनुकूलित करें' : 'Optimize Fertilizer',
+        old_val: `${formData.fertilizer} kg/ha`,
+        new_val: `${Math.round(parseFloat(formData.fertilizer) * 1.15)} kg/ha`,
+        impact: lang === 'hi' ? 'मध्यम प्रभाव' : 'Medium Impact',
+        description: lang === 'hi'
+          ? `मॉडल की सिफारिश: ${results.ideal_fertilizer}। सही मात्रा में उर्वरक उपज बढ़ाता है।`
+          : `Model recommends: ${results.ideal_fertilizer}. Correct fertilizer quantity improves yield.`,
+      },
+      {
+        type: 'additional_irrigation',
+        title: lang === 'hi' ? 'वार्षिक वर्षा / सिंचाई बढ़ाएँ' : 'Increase Annual Irrigation',
+        old_val: `${formData.rainfall} mm`,
+        new_val: `${Math.round(parseFloat(formData.rainfall) + 100)} mm`,
+        impact: d?.penalty > 0
+          ? (lang === 'hi' ? 'उच्च प्रभाव (दंड सक्रिय)' : 'High Impact (Penalty Active)')
+          : (lang === 'hi' ? 'मध्यम प्रभाव' : 'Medium Impact'),
+        description: lang === 'hi'
+          ? 'वर्षा या सिंचाई बढ़ाने से उपज में उल्लेखनीय सुधार हो सकता है।'
+          : 'Increasing rainfall or supplemental irrigation can meaningfully improve yield.',
+      }
+    ];
+  };
+
+  const ScoreBar = ({ label, value, max = 1, color }) => (
+    <div className="mb-3">
+      <div className="flex justify-between text-xs text-amber-200/70 mb-1">
+        <span>{label}</span>
+        <span>{typeof value === 'number' ? value.toFixed(3) : '--'}</span>
+      </div>
+      <div className="w-full bg-amber-950 rounded-full h-2">
+        <div
+          className={`${color} h-2 rounded-full transition-all duration-700`}
+          style={{ width: `${Math.min(100, Math.max(0, (value / max) * 100))}%` }}
+        />
+      </div>
+    </div>
+  );
 
   const NumberInput = ({ label, name, step, value, onChange, unit }) => (
     <div className="mb-4">
-      <label className="text-xs text-amber-200/70 block mb-1">
-        {label} {unit && `(${unit})`}
-      </label>
-      <input 
-        type="number" 
-        name={name} 
-        step={step} 
-        value={value} 
-        onChange={onChange}
+      <label className="text-xs text-amber-200/70 block mb-1">{label} {unit && `(${unit})`}</label>
+      <input
+        type="number" name={name} step={step} value={value} onChange={onChange}
         className="w-full bg-[#2a1a10] border border-amber-900/50 rounded p-2 text-sm text-amber-100 focus:outline-none focus:border-yellow-500 transition-colors"
       />
     </div>
   );
 
+  const verdictColor = (verdictKey) => {
+    if (!verdictKey) return 'text-amber-300';
+    if (verdictKey === 'verdictHighly')      return 'text-green-400';
+    if (verdictKey === 'verdictRecommended') return 'text-green-300';
+    if (verdictKey === 'verdictModerate')    return 'text-yellow-400';
+    if (verdictKey === 'verdictNot')         return 'text-red-400';
+    return 'text-amber-300';
+  };
+
   return (
     <div className="flex h-screen bg-[#26160d] text-amber-50 font-sans overflow-hidden">
-      
+
       {/* LEFT SIDEBAR */}
       <div className="w-80 bg-[#1a0f05] border-r border-amber-900/30 flex flex-col h-full shadow-2xl z-10 shrink-0">
         <div className="p-4 border-b border-amber-900/30">
@@ -230,7 +281,7 @@ export default function App() {
             <span className="truncate">{t.appTitle}</span>
           </h1>
         </div>
-        
+
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
           <form id="agri-form" onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -242,7 +293,7 @@ export default function App() {
                 <option value="sugarcane">{t.sugarcane}</option>
               </select>
             </div>
-            
+
             <div>
               <label className="text-xs text-amber-200/70 block mb-1">{t.soil}</label>
               <select name="soil" value={formData.soil} onChange={handleChange} className="w-full bg-[#2a1a10] border border-amber-900/50 rounded p-2 text-sm text-amber-100 focus:outline-none focus:border-yellow-500">
@@ -293,9 +344,9 @@ export default function App() {
             </div>
           </form>
         </div>
-        
+
         <div className="p-4 border-t border-amber-900/30 bg-[#1a0f05]">
-          <button 
+          <button
             type="submit" form="agri-form" disabled={loading}
             className="w-full bg-yellow-600 hover:bg-yellow-500 text-amber-950 font-bold py-3 px-4 rounded transition-colors disabled:opacity-50 flex justify-center items-center"
           >
@@ -308,7 +359,7 @@ export default function App() {
       {/* RIGHT MAIN CONTENT */}
       <div className="flex-1 flex flex-col relative overflow-y-auto">
         <div className="absolute top-6 right-8 z-20">
-          <button 
+          <button
             onClick={toggleLanguage}
             className="flex items-center gap-2 bg-[#1a0f05] border border-amber-900/50 px-4 py-2 rounded-full text-sm font-medium text-amber-200 hover:text-yellow-500 hover:border-yellow-500/50 transition-colors shadow-lg"
           >
@@ -317,58 +368,78 @@ export default function App() {
           </button>
         </div>
 
-        {!results ? (
+        {/* ERROR STATE */}
+        {error && (
+          <div className="m-8 mt-20 bg-red-950/40 border border-red-700/50 rounded-xl p-6 flex gap-4 items-start">
+            <AlertCircle className="w-6 h-6 text-red-400 shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-red-300 mb-1">{t.errorTitle}</h3>
+              <p className="text-sm text-red-200/70">{t.errorDesc}</p>
+              <p className="text-xs text-red-400/60 mt-2 font-mono">{error}</p>
+            </div>
+          </div>
+        )}
+
+        {/* EMPTY STATE */}
+        {!results && !error && !loading && (
           <div className="flex-1 flex flex-col items-center justify-center p-8 opacity-60 mt-12">
             <Sprout className="w-24 h-24 text-yellow-600/50 mb-6" />
             <h2 className="text-2xl font-bold mb-3 text-amber-100">{t.emptyTitle}</h2>
             <p className="text-amber-200/70 max-w-md text-center text-sm leading-relaxed">{t.emptyDesc}</p>
           </div>
-        ) : (
+        )}
+
+        {/* LOADING STATE */}
+        {loading && (
+          <div className="flex-1 flex flex-col items-center justify-center p-8">
+            <div className="w-12 h-12 border-4 border-yellow-600/30 border-t-yellow-500 rounded-full animate-spin mb-4" />
+            <p className="text-amber-200/60 text-sm">{t.analyzingBtn}</p>
+          </div>
+        )}
+
+        {/* RESULTS */}
+        {results && !loading && (
           <div className="max-w-5xl mx-auto w-full p-8 pt-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex space-x-6 border-b border-amber-900/50 mb-8 overflow-x-auto shrink-0 hide-scrollbar">
-              <button 
-                onClick={() => setActiveTab('summary')}
-                className={`pb-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'summary' ? 'border-yellow-500 text-yellow-500' : 'border-transparent text-amber-200/60 hover:text-amber-100'}`}
-              >
-                {t.tabSummary}
-              </button>
-              <button 
-                onClick={() => setActiveTab('whatif')}
-                className={`pb-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'whatif' ? 'border-yellow-500 text-yellow-500' : 'border-transparent text-amber-200/60 hover:text-amber-100'}`}
-              >
-                {t.tabWhatIf}
-              </button>
+              {[['summary', t.tabSummary], ['whatif', t.tabWhatIf]].map(([key, label]) => (
+                <button key={key} onClick={() => setActiveTab(key)}
+                  className={`pb-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === key ? 'border-yellow-500 text-yellow-500' : 'border-transparent text-amber-200/60 hover:text-amber-100'}`}>
+                  {label}
+                </button>
+              ))}
             </div>
 
+            {/* SUMMARY TAB */}
             {activeTab === 'summary' && (
               <div className="space-y-8">
-                <div className="bg-[#1f120a] border border-amber-900/30 rounded-xl p-6 shadow-lg flex flex-col md:flex-row gap-6 md:items-center">
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start mb-6">
-                      <div>
-                        <p className="text-sm text-amber-200/70 mb-1">{t.estYield}</p>
-                        <div className="flex items-baseline gap-2">
-                          <h2 className="text-5xl font-bold text-yellow-500">{results?.details?.ml_prediction?.toFixed(2) || "--"}</h2>
-                          <span className="text-amber-200/60">{lang === 'en' ? 'Q/ha' : 'क्विंटल/हे.'}</span>
-                        </div>
+                {/* Yield + Score Card */}
+                <div className="bg-[#1f120a] border border-amber-900/30 rounded-xl p-6 shadow-lg">
+                  <div className="flex flex-col md:flex-row gap-8">
+                    {/* Yield */}
+                    <div className="flex-1">
+                      <p className="text-sm text-amber-200/70 mb-1">{t.estYield}</p>
+                      <div className="flex items-baseline gap-2 mb-6">
+                        <h2 className="text-5xl font-bold text-yellow-500">
+                          {results?.details?.ml_prediction != null
+                            ? results.details.ml_prediction.toFixed(2)
+                            : '--'}
+                        </h2>
+                        <span className="text-amber-200/60">{lang === 'en' ? 'Q/ha' : 'क्विंटल/हे.'}</span>
+                        {/* Verdict badge */}
+                        <span className={`ml-auto text-xs font-medium px-3 py-1 rounded-full border border-current bg-black/20 ${verdictColor(results?.verdict_key)}`}>
+                          {t[results?.verdict_key] || '--'}
+                        </span>
                       </div>
-                      <div className="bg-green-900/40 text-green-400 px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 border border-green-800/50 shrink-0">
-                        <CheckCircle className="w-3 h-3" /> {results.summary_status || (lang === 'en' ? 'Optimal' : 'सर्वोत्तम')}
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <div>
-                        <div className="flex justify-between text-xs text-amber-200/70 mb-2"><span>{t.currentYield}</span></div>
-                        <div className="w-full bg-amber-950 rounded-full h-2.5"><div className="bg-green-600 h-2.5 rounded-full" style={{ width: '60%' }}></div></div>
-                      </div>
-                      <div>
-                        <div className="flex justify-between text-xs text-amber-200/70 mb-2"><span>{t.potentialYield}</span></div>
-                        <div className="w-full bg-amber-950 rounded-full h-2.5"><div className="bg-yellow-500 h-2.5 rounded-full" style={{ width: '85%' }}></div></div>
-                      </div>
+
+                      {/* Score bars */}
+                      <ScoreBar label={t.finalScore} value={results?.details?.final_score} color="bg-yellow-500" />
+                      <ScoreBar label={t.costScore} value={results?.details?.cost_score} color="bg-green-500" />
+                      <ScoreBar label={t.penaltyScore} value={results?.details?.penalty} max={0.5} color="bg-red-500" />
                     </div>
                   </div>
                 </div>
 
+                {/* Entered Info */}
                 <div className="bg-[#1f120a] border border-amber-900/40 rounded-xl p-6 shadow-lg">
                   <h3 className="text-lg font-semibold text-amber-100 mb-4">{t.enteredInfo}</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -385,23 +456,31 @@ export default function App() {
               </div>
             )}
 
+            {/* WHAT IF TAB */}
             {activeTab === 'whatif' && (
               <div className="space-y-6">
-                {/* 🌱 Ideal Fertilizer Recommendation Section - FIXED ALL TRANSLATIONS */}
+                {/* Fertilizer Recommendation — real data from model */}
                 <div className="bg-[#1f120a] border border-green-800/40 rounded-xl p-6 shadow-lg">
-                  <h2 className="text-lg font-semibold text-green-400 mb-2">
-                    🌱 {t.idealFertilizerTitle}
-                  </h2>
+                  <h2 className="text-lg font-semibold text-green-400 mb-2">🌱 {t.idealFertilizerTitle}</h2>
                   <p className="text-2xl font-bold text-yellow-400 mb-3">
-                    {t[results?.ideal_fertilizer_key] || results?.ideal_fertilizer || "N/A"}
+                    {results?.ideal_fertilizer || 'N/A'}
                   </p>
-                  <p className="text-sm text-amber-200/70 mb-2">
-                    <strong>{t.verdictTitle}:</strong> {t[results?.verdict_key] || results?.verdict}
+                  <p className={`text-sm font-medium mb-3 ${verdictColor(results?.verdict_key)}`}>
+                    <strong>{t.verdictTitle}:</strong> {t[results?.verdict_key] || results?.verdict_key || '--'}
                   </p>
+                  <p className="text-xs text-amber-200/60 uppercase tracking-wider mb-2">{t.explanationTitle}</p>
                   <ul className="list-disc pl-5 text-sm text-amber-200/70 space-y-1">
-                    {results?.explanation_keys ? results.explanation_keys.map((key, index) => (
-                      <li key={index}>{t[key]}</li>
-                    )) : results?.explanation?.map((item, index) => <li key={index}>{item}</li>)}
+                    {Array.isArray(results?.explanation_keys)
+                      ? results.explanation_keys.map((key, idx) => (
+                          <li key={idx}>
+                            {key === 'expYield'
+                              ? (lang === 'hi'
+                                  ? `अनुमानित उपज ${results.yield_value} Q/ha है`
+                                  : `Predicted yield is ${results.yield_value} Q/ha`)
+                              : (t[key] || key)}
+                          </li>
+                        ))
+                      : <li>{lang === 'hi' ? 'कोई स्पष्टीकरण उपलब्ध नहीं।' : 'No explanation available.'}</li>}
                   </ul>
                 </div>
 
@@ -410,50 +489,29 @@ export default function App() {
                   <p className="text-sm text-amber-200/60">{t.whatIfDesc}</p>
                 </div>
 
+                {/* Dynamic scenario cards built from actual results */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {results?.scenarios?.map((scenario, idx) => (
+                  {buildScenarios(results).map((scenario, idx) => (
                     <div key={idx} className="bg-[#1f120a] border border-amber-900/30 rounded-xl p-5 shadow-lg flex flex-col h-full">
                       <div className="flex items-center gap-2 mb-4">
-                        {scenario?.type === 'irrigation' && <Droplet className="w-5 h-5 text-blue-400" />}
-                        {scenario?.type === 'fertilizer' && <Beaker className="w-5 h-5 text-purple-400" />}
-                        {scenario?.type === 'additional_irrigation' && <Sun className="w-5 h-5 text-yellow-400" />}
-                        <h3 className="font-medium text-amber-100">{t[scenario?.title_key] || scenario?.title}</h3>
+                        {scenario.type === 'irrigation' && <Droplet className="w-5 h-5 text-blue-400" />}
+                        {scenario.type === 'fertilizer' && <Beaker className="w-5 h-5 text-purple-400" />}
+                        {scenario.type === 'additional_irrigation' && <Sun className="w-5 h-5 text-yellow-400" />}
+                        <h3 className="font-medium text-amber-100">{scenario.title}</h3>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-amber-200/80 mb-4 bg-[#150b06] p-2 rounded">
-                        <span className="line-through opacity-60">{t[scenario?.old_key] || scenario?.old_val || scenario?.old_value}</span>
+                        <span className="line-through opacity-60">{scenario.old_val}</span>
                         <ChevronRight className="w-4 h-4 text-yellow-600" />
-                        <span className="text-yellow-500 font-medium">{t[scenario?.new_key] || scenario?.new_val || scenario?.new_value}</span>
+                        <span className="text-yellow-500 font-medium">{scenario.new_val}</span>
                       </div>
-                      <div className="text-green-400 text-sm font-medium mb-3">{scenario?.benefit}</div>
-                      <p className="text-xs text-amber-200/60 leading-relaxed flex-1">{t[scenario?.description_key] || scenario?.description}</p>
+                      <p className="text-xs text-amber-200/60 leading-relaxed flex-1">{scenario.description}</p>
                       <div className="mt-4 pt-4 border-t border-amber-900/30">
                         <span className="inline-block text-[10px] px-2 py-1 rounded border border-green-500/50 text-green-400 bg-green-500/10">
-                          {lang === 'hi' ? scenario?.impact_hi : scenario?.impact_en}
+                          {scenario.impact}
                         </span>
                       </div>
                     </div>
                   ))}
-                </div>
-
-                <div className="bg-[#1f120a] border border-amber-900/40 rounded-xl p-6 shadow-lg mt-6">
-                  <h3 className="text-lg font-semibold text-amber-100 mb-4">⚡ {t.suggestedImprovements}</h3>
-                  <div className="grid md:grid-cols-3 gap-4">
-                    <div className="bg-[#2a160c] p-4 rounded-lg border border-green-800/30">
-                      <h4 className="text-green-400 font-semibold mb-2">{t.changeIrrigation}</h4>
-                      <p className="text-sm text-amber-200/70 mb-2">{t.rainfedToDrip}</p>
-                      <p className="text-green-300 text-sm font-medium">+25% {t.yieldImprovement}</p>
-                    </div>
-                    <div className="bg-[#2a160c] p-4 rounded-lg border border-green-800/30">
-                      <h4 className="text-green-400 font-semibold mb-2">{t.optimizeFertilizer}</h4>
-                      <p className="text-sm text-amber-200/70 mb-2">{t.optimizeDesc}</p>
-                      <p className="text-green-300 text-sm font-medium">+15% {t.yieldImprovement}</p>
-                    </div>
-                    <div className="bg-[#2a160c] p-4 rounded-lg border border-yellow-800/30">
-                      <h4 className="text-yellow-400 font-semibold mb-2">{t.increaseIrrigation}</h4>
-                      <p className="text-sm text-amber-200/70 mb-2">{t.increaseWaterDesc}</p>
-                      <p className="text-yellow-300 text-sm font-medium">+15% {t.yieldImprovement}</p>
-                    </div>
-                  </div>
                 </div>
               </div>
             )}
