@@ -43,12 +43,10 @@ const i18n = {
     penaltyScore: "Condition Penalty",
     errorTitle: "Could not connect to backend",
     errorDesc: "Make sure your Flask server is running at http://localhost:5000",
-    // Verdict keys returned by backend
     verdictHighly: "Highly Recommended",
     verdictRecommended: "Recommended",
     verdictModerate: "Moderately Suitable",
     verdictNot: "Not Recommended",
-    // Explanation keys returned by backend
     expCostOk: "Fertilizer usage is cost-effective",
     expCostHigh: "Fertilizer usage is relatively high",
     expCondOk: "Soil and irrigation conditions are suitable",
@@ -95,12 +93,10 @@ const i18n = {
     penaltyScore: "स्थिति दंड",
     errorTitle: "बैकएंड से कनेक्ट नहीं हो सका",
     errorDesc: "सुनिश्चित करें कि Flask सर्वर http://localhost:5000 पर चल रहा है",
-    // Verdict keys returned by backend
     verdictHighly: "अत्यधिक अनुशंसित",
     verdictRecommended: "अनुशंसित",
     verdictModerate: "सामान्य रूप से उपयुक्त",
     verdictNot: "अनुशंसित नहीं",
-    // Explanation keys returned by backend
     expCostOk: "उर्वरक उपयोग किफायती है",
     expCostHigh: "उर्वरक उपयोग अपेक्षाकृत अधिक है",
     expCondOk: "मिट्टी और सिंचाई की स्थिति उपयुक्त है",
@@ -114,6 +110,7 @@ export default function App() {
 
   const [loading, setLoading] = useState(false);
   const [locLoading, setLocLoading] = useState(false);
+  const [weatherError, setWeatherError] = useState(null);
   const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('summary');
@@ -132,25 +129,95 @@ export default function App() {
   const toggleLanguage = () => setLang(prev => prev === 'hi' ? 'en' : 'hi');
 
   const fetchWeatherAndLocation = () => {
-    if (!navigator.geolocation) return;
+    setWeatherError(null);
+
+    const weatherMessages = {
+      unsupported: lang === 'hi'
+        ? 'Location based weather detect is browser mein supported nahin hai.'
+        : 'This browser does not support location-based weather detection.',
+      insecure: lang === 'hi'
+        ? 'Location access ke liye app ko localhost ya HTTPS par kholna hoga.'
+        : 'Location access needs localhost or HTTPS.',
+      denied: lang === 'hi'
+        ? 'Location permission deny ho gayi. Permission allow karke phir try karein.'
+        : 'Location permission was denied. Please allow it and try again.',
+      unavailable: lang === 'hi'
+        ? 'Abhi aapki location detect nahin ho pa rahi hai.'
+        : 'Your location could not be detected right now.',
+      timeout: lang === 'hi'
+        ? 'Location request timeout ho gaya. Please try again.'
+        : 'Location request timed out. Please try again.',
+      fetch: lang === 'hi'
+        ? 'Weather data abhi fetch nahin ho pa raha hai.'
+        : 'Weather data could not be fetched right now.',
+    };
+
+    if (!navigator.geolocation) {
+      setWeatherError(weatherMessages.unsupported);
+      return;
+    }
+
+    const isLocalhost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+    if (!window.isSecureContext && !isLocalhost) {
+      setWeatherError(weatherMessages.insecure);
+      return;
+    }
+
     setLocLoading(true);
+
     navigator.geolocation.getCurrentPosition(async (position) => {
       const { latitude, longitude } = position.coords;
       try {
-        const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,precipitation`);
-        if (!response.ok) throw new Error("Weather API failed");
-        const data = await response.json();
+        const lat = latitude.toFixed(4);
+        const lon = longitude.toFixed(4);
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m&daily=precipitation_sum&past_days=365&forecast_days=1&timezone=auto`;
+
+        let response;
+        try {
+          response = await fetch(url);
+        } catch (networkErr) {
+          throw new Error(`Network error: ${networkErr.message}`);
+        }
+
+        if (!response.ok) {
+          const errText = await response.text().catch(() => String(response.status));
+          throw new Error(`API ${response.status}: ${errText}`);
+        }
+
+        const payload = await response.json();
+        const temperature = payload?.current?.temperature_2m;
+        const dailyRain = payload?.daily?.precipitation_sum;
+        const rainfall = Array.isArray(dailyRain) && dailyRain.length > 0
+          ? Math.round(dailyRain.reduce((sum, v) => sum + (v ?? 0), 0))
+          : null;
+
+        if (typeof temperature !== 'number' && rainfall === null) {
+          throw new Error(`Incomplete data from API`);
+        }
+
         setFormData(prev => ({
           ...prev,
-          temperature: data.current.temperature_2m,
-          rainfall: Math.min(1000, Math.floor(data.current.precipitation * 50 + 300))
+          temperature: typeof temperature === 'number'
+            ? Math.round(temperature * 10) / 10
+            : prev.temperature,
+          rainfall: rainfall !== null ? rainfall : prev.rainfall,
         }));
       } catch (err) {
-        console.error(err);
+        console.error("Weather fetch error:", err);
+        setWeatherError(`${weatherMessages.fetch} [${err.message}]`);
       } finally {
         setLocLoading(false);
       }
-    }, () => setLocLoading(false));
+    }, (geoError) => {
+      if (geoError?.code === geoError.PERMISSION_DENIED) setWeatherError(weatherMessages.denied);
+      else if (geoError?.code === geoError.TIMEOUT) setWeatherError(weatherMessages.timeout);
+      else setWeatherError(weatherMessages.unavailable);
+      setLocLoading(false);
+    }, {
+      enableHighAccuracy: false,
+      timeout: 10000,
+      maximumAge: 300000,
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -167,8 +234,11 @@ export default function App() {
           soil_pH: parseFloat(formData.ph),
           irrigation_type: formData.irrigation,
           Annual_Rainfall: parseFloat(formData.rainfall),
+          temperature: parseFloat(formData.temperature),
           Area: parseFloat(formData.area),
           Pesticide: parseFloat(formData.pesticide),
+          Fertilizer: parseFloat(formData.fertilizer),  // FIX: was missing, fertilizer input was ignored
+          soil_type: formData.soil,                     // FIX: was missing, soil type always defaulted to Loam
           Crop: formData.crop,
           Season: formData.season,
         })
@@ -183,8 +253,6 @@ export default function App() {
 
       if (!data.success) throw new Error(data.error || "Unknown error from model");
 
-      // data.data comes directly from hybrid_service.recommend()
-      // Shape: { ideal_fertilizer, verdict, explanation: [...], details: { ml_prediction, cost_score, penalty, final_score } }
       setResults(data.data);
       setActiveTab('summary');
 
@@ -196,7 +264,6 @@ export default function App() {
     }
   };
 
-  // Derive scenario cards from actual model output
   const buildScenarios = (results) => {
     if (!results) return [];
     const d = results.details;
@@ -328,6 +395,7 @@ export default function App() {
               <NumberInput label={t.temperature} name="temperature" step="0.1" value={formData.temperature} onChange={handleChange} unit="°C" />
             </div>
 
+            {weatherError && <p className="-mt-2 text-[11px] text-red-300/80">{weatherError}</p>}
             <NumberInput label={t.fertilizer} name="fertilizer" step="1" value={formData.fertilizer} onChange={handleChange} unit={t.kgHa} />
             <NumberInput label={t.pesticide} name="pesticide" step="0.1" value={formData.pesticide} onChange={handleChange} unit={t.kgHa} />
             <NumberInput label={t.area} name="area" step="0.1" value={formData.area} onChange={handleChange} unit={t.ha} />
@@ -415,7 +483,6 @@ export default function App() {
                 {/* Yield + Score Card */}
                 <div className="bg-[#1f120a] border border-amber-900/30 rounded-xl p-6 shadow-lg">
                   <div className="flex flex-col md:flex-row gap-8">
-                    {/* Yield */}
                     <div className="flex-1">
                       <p className="text-sm text-amber-200/70 mb-1">{t.estYield}</p>
                       <div className="flex items-baseline gap-2 mb-6">
@@ -425,13 +492,10 @@ export default function App() {
                             : '--'}
                         </h2>
                         <span className="text-amber-200/60">{lang === 'en' ? 'Q/ha' : 'क्विंटल/हे.'}</span>
-                        {/* Verdict badge */}
                         <span className={`ml-auto text-xs font-medium px-3 py-1 rounded-full border border-current bg-black/20 ${verdictColor(results?.verdict_key)}`}>
                           {t[results?.verdict_key] || '--'}
                         </span>
                       </div>
-
-                      {/* Score bars */}
                       <ScoreBar label={t.finalScore} value={results?.details?.final_score} color="bg-yellow-500" />
                       <ScoreBar label={t.costScore} value={results?.details?.cost_score} color="bg-green-500" />
                       <ScoreBar label={t.penaltyScore} value={results?.details?.penalty} max={0.5} color="bg-red-500" />
@@ -459,7 +523,6 @@ export default function App() {
             {/* WHAT IF TAB */}
             {activeTab === 'whatif' && (
               <div className="space-y-6">
-                {/* Fertilizer Recommendation — real data from model */}
                 <div className="bg-[#1f120a] border border-green-800/40 rounded-xl p-6 shadow-lg">
                   <h2 className="text-lg font-semibold text-green-400 mb-2">🌱 {t.idealFertilizerTitle}</h2>
                   <p className="text-2xl font-bold text-yellow-400 mb-3">
@@ -477,7 +540,7 @@ export default function App() {
                               ? (lang === 'hi'
                                   ? `अनुमानित उपज ${results.yield_value} Q/ha है`
                                   : `Predicted yield is ${results.yield_value} Q/ha`)
-                              : (t[key] || key)}
+                              : (t[key] || key.replace(/([A-Z])/g, ' $1').trim())}
                           </li>
                         ))
                       : <li>{lang === 'hi' ? 'कोई स्पष्टीकरण उपलब्ध नहीं।' : 'No explanation available.'}</li>}
@@ -489,7 +552,6 @@ export default function App() {
                   <p className="text-sm text-amber-200/60">{t.whatIfDesc}</p>
                 </div>
 
-                {/* Dynamic scenario cards built from actual results */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {buildScenarios(results).map((scenario, idx) => (
                     <div key={idx} className="bg-[#1f120a] border border-amber-900/30 rounded-xl p-5 shadow-lg flex flex-col h-full">

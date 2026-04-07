@@ -93,9 +93,9 @@ def predict_fertilizer(input_data):
     try:
         row = {
             'Temparature': float(input_data.get("temperature", 25)),
-            'Humidity':    float(input_data.get("humidity", 50)),
+            'Humidity ':    float(input_data.get("humidity", 50)),
             'Moisture':    float(input_data.get("moisture", 30)),
-            'Soil Type':   str(input_data.get("soil_type", "Loam")),
+            'Soil Type':   str(input_data.get("soil_type", "Loamy")),
             'Crop Type':   str(input_data.get("Crop", "Wheat")),
             'Nitrogen':    float(input_data.get("nitrogen", 20)),
             'Potassium':   float(input_data.get("potassium", 10)),
@@ -119,7 +119,10 @@ def recommend(input_data):
 
     # 1. Fertilizer recommendation
     fertilizer_name      = predict_fertilizer(input_data)
-    fertilizer_per_ha    = float(input_data.get("fertilizer", fertilizer_to_amount(fertilizer_name)))
+    fertilizer_per_ha = float(
+        input_data.get("Fertilizer") or input_data.get("fertilizer") 
+        or fertilizer_to_amount(fertilizer_name)
+    )
     pesticide_per_ha     = float(input_data.get("Pesticide", 10))
     annual_rainfall      = float(input_data.get("Annual_Rainfall", 200))
 
@@ -149,7 +152,7 @@ def recommend(input_data):
     # 4. Predict
     ml_prediction = float(yield_model.predict(df)[0])
     # Scale ml_score: typical yield ~2 Q/ha, score should be 0-1 range for MCDA
-    ml_score = min(ml_prediction / 5.0, 1.0)
+    ml_score = min(ml_prediction / 40.0, 1.0)
     print(f"✅ Predicted yield: {ml_prediction:.3f} Q/ha")
 
     # 5. Score
@@ -173,3 +176,26 @@ def recommend(input_data):
         "yield_value":       round(ml_prediction, 2),   # number only, frontend formats it
         "details":           result,
     }
+
+if __name__ == "__main__":
+    # Sample input data for testing
+    input_data = {
+        "temperature": 25.0,
+        "humidity": 50.0,
+        "moisture": 30.0,
+        "soil_type": "Loamy",
+        "Crop": "Wheat",
+        "nitrogen": 20.0,
+        "potassium": 10.0,
+        "phosphorous": 10.0,
+        "soil_pH": 7.0,
+        "irrigation_type": "Drip",
+        "Fertilizer": 100.0,
+        "Pesticide": 10.0,
+        "Annual_Rainfall": 200.0,
+        "Season": "Kharif"
+    }
+    result = recommend(input_data)
+    print(result)
+    verdict, explanation = interpret_result(result["details"])
+    print("Verdict:", verdict)
