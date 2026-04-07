@@ -88,18 +88,29 @@ def fertilizer_to_amount(name):
 
 
 # ── Fertilizer prediction ─────────────────────────────────────────────────────
+def get_crop_defaults(crop):
+    crop = str(crop).lower()
+    defaults = {
+        "wheat":     {"humidity": 60, "moisture": 35, "n": 25, "k": 15, "p": 20},
+        "paddy":     {"humidity": 80, "moisture": 70, "n": 30, "k": 20, "p": 25},
+        "maize":     {"humidity": 55, "moisture": 40, "n": 28, "k": 18, "p": 22},
+        "sugarcane": {"humidity": 75, "moisture": 65, "n": 35, "k": 25, "p": 30},
+    }
+    return defaults.get(crop, defaults["wheat"])
 
 def predict_fertilizer(input_data):
     try:
+        defaults = get_crop_defaults(input_data.get("Crop", "wheat"))
+
         row = {
             'Temparature': float(input_data.get("temperature", 25)),
-            'Humidity ':    float(input_data.get("humidity", 50)),
-            'Moisture':    float(input_data.get("moisture", 30)),
-            'Soil Type':   str(input_data.get("soil_type", "Loamy")),
-            'Crop Type':   str(input_data.get("Crop", "Wheat")),
-            'Nitrogen':    float(input_data.get("nitrogen", 20)),
-            'Potassium':   float(input_data.get("potassium", 10)),
-            'Phosphorous': float(input_data.get("phosphorous", 10)),
+            'Humidity ': float(input_data.get("humidity", defaults["humidity"])),
+            'Moisture': float(input_data.get("moisture", defaults["moisture"])),
+            'Soil Type': str(input_data.get("soil_type", "Loamy")),
+            'Crop Type': str(input_data.get("Crop", "Wheat")),
+            'Nitrogen': float(input_data.get("nitrogen", defaults["n"])),
+            'Potassium': float(input_data.get("potassium", defaults["k"])),
+            'Phosphorous': float(input_data.get("phosphorous", defaults["p"])),
         }
         df = pd.DataFrame([row])
         for col in fert_encoders:
@@ -110,7 +121,6 @@ def predict_fertilizer(input_data):
     except Exception as e:
         print("❌ Fertilizer prediction error:", e)
         return "Urea"
-
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
@@ -151,6 +161,10 @@ def recommend(input_data):
 
     # 4. Predict
     ml_prediction = float(yield_model.predict(df)[0])
+
+    # 🔥 APPLY FERTILIZER ADJUSTMENT
+    fert_factor = fertilizer_response_curve(fertilizer_per_ha)
+    ml_prediction *= fert_factor
     # Scale ml_score: typical yield ~2 Q/ha, score should be 0-1 range for MCDA
     ml_score = min(ml_prediction / 40.0, 1.0)
     print(f"✅ Predicted yield: {ml_prediction:.3f} Q/ha")
@@ -199,3 +213,16 @@ if __name__ == "__main__":
     print(result)
     verdict, explanation = interpret_result(result["details"])
     print("Verdict:", verdict)
+
+def fertilizer_response_curve(fert):
+    # realistic agronomy-inspired curve
+    if fert < 50:
+        return 0.85
+    elif fert < 100:
+        return 1.0
+    elif fert < 150:
+        return 1.08
+    elif fert < 200:
+        return 1.12
+    else:
+        return 1.05  # diminishing returns

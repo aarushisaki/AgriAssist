@@ -104,6 +104,31 @@ const i18n = {
   }
 };
 
+const ScoreBar = ({ label, value, max = 1, color }) => (
+  <div className="mb-3">
+    <div className="flex justify-between text-xs text-amber-200/70 mb-1">
+      <span>{label}</span>
+      <span>{typeof value === 'number' ? value.toFixed(3) : '--'}</span>
+    </div>
+    <div className="w-full bg-amber-950 rounded-full h-2">
+      <div
+        className={`${color} h-2 rounded-full transition-all duration-700`}
+        style={{ width: `${Math.min(100, Math.max(0, (value / max) * 100))}%` }}
+      />
+    </div>
+  </div>
+);
+
+const NumberInput = ({ label, name, step, value, onChange, unit }) => (
+  <div className="mb-4">
+    <label className="text-xs text-amber-200/70 block mb-1">{label} {unit && `(${unit})`}</label>
+    <input
+      type="number" name={name} step={step} value={value} onChange={onChange}
+      className="w-full bg-[#2a1a10] border border-amber-900/50 rounded p-2 text-sm text-amber-100 focus:outline-none focus:border-yellow-500 transition-colors"
+    />
+  </div>
+);
+
 export default function App() {
   const [lang, setLang] = useState('hi');
   const t = i18n[lang];
@@ -170,7 +195,12 @@ export default function App() {
       try {
         const lat = latitude.toFixed(4);
         const lon = longitude.toFixed(4);
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m&daily=precipitation_sum&past_days=365&forecast_days=1&timezone=auto`;
+
+        // FIX: Open-Meteo only allows past_days 0–93. The previous value of 365
+        // caused a 400 error. We now fetch 92 days and extrapolate to an annual
+        // estimate using: (period_total / days_received) * 365
+        const PAST_DAYS = 92;
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m&daily=precipitation_sum&past_days=${PAST_DAYS}&forecast_days=1&timezone=auto`;
 
         let response;
         try {
@@ -187,9 +217,14 @@ export default function App() {
         const payload = await response.json();
         const temperature = payload?.current?.temperature_2m;
         const dailyRain = payload?.daily?.precipitation_sum;
-        const rainfall = Array.isArray(dailyRain) && dailyRain.length > 0
-          ? Math.round(dailyRain.reduce((sum, v) => sum + (v ?? 0), 0))
-          : null;
+
+        // Sum the days we actually received, then extrapolate to annual (365 days)
+        let rainfall = null;
+        if (Array.isArray(dailyRain) && dailyRain.length > 0) {
+          const actualDays = dailyRain.length;
+          const periodTotal = dailyRain.reduce((sum, v) => sum + (v ?? 0), 0);
+          rainfall = Math.round((periodTotal / actualDays) * 365);
+        }
 
         if (typeof temperature !== 'number' && rainfall === null) {
           throw new Error(`Incomplete data from API`);
@@ -237,8 +272,8 @@ export default function App() {
           temperature: parseFloat(formData.temperature),
           Area: parseFloat(formData.area),
           Pesticide: parseFloat(formData.pesticide),
-          Fertilizer: parseFloat(formData.fertilizer),  // FIX: was missing, fertilizer input was ignored
-          soil_type: formData.soil,                     // FIX: was missing, soil type always defaulted to Loam
+          Fertilizer: parseFloat(formData.fertilizer),
+          soil_type: formData.soil,
           Crop: formData.crop,
           Season: formData.season,
         })
@@ -303,31 +338,6 @@ export default function App() {
     ];
   };
 
-  const ScoreBar = ({ label, value, max = 1, color }) => (
-    <div className="mb-3">
-      <div className="flex justify-between text-xs text-amber-200/70 mb-1">
-        <span>{label}</span>
-        <span>{typeof value === 'number' ? value.toFixed(3) : '--'}</span>
-      </div>
-      <div className="w-full bg-amber-950 rounded-full h-2">
-        <div
-          className={`${color} h-2 rounded-full transition-all duration-700`}
-          style={{ width: `${Math.min(100, Math.max(0, (value / max) * 100))}%` }}
-        />
-      </div>
-    </div>
-  );
-
-  const NumberInput = ({ label, name, step, value, onChange, unit }) => (
-    <div className="mb-4">
-      <label className="text-xs text-amber-200/70 block mb-1">{label} {unit && `(${unit})`}</label>
-      <input
-        type="number" name={name} step={step} value={value} onChange={onChange}
-        className="w-full bg-[#2a1a10] border border-amber-900/50 rounded p-2 text-sm text-amber-100 focus:outline-none focus:border-yellow-500 transition-colors"
-      />
-    </div>
-  );
-
   const verdictColor = (verdictKey) => {
     if (!verdictKey) return 'text-amber-300';
     if (verdictKey === 'verdictHighly')      return 'text-green-400';
@@ -391,7 +401,7 @@ export default function App() {
                   {locLoading ? t.detecting : t.autoDetect}
                 </button>
               </div>
-              <NumberInput label={t.rainfall} name="rainfall" step="1" value={formData.rainfall} onChange={handleChange} unit={t.mm} />
+              <NumberInput label={t.rainfall} name="rainfall" step="1" value={formData.rainfall} onChange={handleChange} unit={t.mmYr} />
               <NumberInput label={t.temperature} name="temperature" step="0.1" value={formData.temperature} onChange={handleChange} unit="°C" />
             </div>
 
@@ -480,7 +490,6 @@ export default function App() {
             {/* SUMMARY TAB */}
             {activeTab === 'summary' && (
               <div className="space-y-8">
-                {/* Yield + Score Card */}
                 <div className="bg-[#1f120a] border border-amber-900/30 rounded-xl p-6 shadow-lg">
                   <div className="flex flex-col md:flex-row gap-8">
                     <div className="flex-1">
@@ -503,7 +512,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Entered Info */}
                 <div className="bg-[#1f120a] border border-amber-900/40 rounded-xl p-6 shadow-lg">
                   <h3 className="text-lg font-semibold text-amber-100 mb-4">{t.enteredInfo}</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
