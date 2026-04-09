@@ -47,11 +47,12 @@ model = joblib.load("../models/yield_models/Random_Forest.pkl")
 # -------------------------
 print("\n===== SHAP ANALYSIS =====")
 
-explainer = shap.TreeExplainer(model)
-shap_values = explainer.shap_values(X_test)
+explainer = shap.TreeExplainer(model, feature_perturbation="tree_path_dependent")
+sample = X_test.sample(50)   # only 50 rows
+shap_values = explainer.shap_values(sample)
 
 # Summary plot
-shap.summary_plot(shap_values, X_test, show=False)
+shap.summary_plot(shap_values, sample, show=False)
 plt.savefig("../models/shap_summary.png")
 
 # Individual prediction
