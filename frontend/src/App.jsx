@@ -134,8 +134,6 @@ export default function App() {
   const t = i18n[lang];
 
   const [loading, setLoading] = useState(false);
-  const [locLoading, setLocLoading] = useState(false);
-  const [weatherError, setWeatherError] = useState(null);
   const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('summary');
@@ -153,106 +151,81 @@ export default function App() {
 
   const toggleLanguage = () => setLang(prev => prev === 'hi' ? 'en' : 'hi');
 
+  const [detecting, setDetecting] = useState(false);
+  const [weatherError, setWeatherError] = useState(null);
+
   const fetchWeatherAndLocation = () => {
+    if (!navigator.geolocation) {
+      setWeatherError(lang === 'hi' ? 'जियोलोकेशन समर्थित नहीं है।' : 'Geolocation is not supported by your browser.');
+      return;
+    }
+
+    setDetecting(true);
     setWeatherError(null);
 
-    const weatherMessages = {
-      unsupported: lang === 'hi'
-        ? 'Location based weather detect is browser mein supported nahin hai.'
-        : 'This browser does not support location-based weather detection.',
-      insecure: lang === 'hi'
-        ? 'Location access ke liye app ko localhost ya HTTPS par kholna hoga.'
-        : 'Location access needs localhost or HTTPS.',
-      denied: lang === 'hi'
-        ? 'Location permission deny ho gayi. Permission allow karke phir try karein.'
-        : 'Location permission was denied. Please allow it and try again.',
-      unavailable: lang === 'hi'
-        ? 'Abhi aapki location detect nahin ho pa rahi hai.'
-        : 'Your location could not be detected right now.',
-      timeout: lang === 'hi'
-        ? 'Location request timeout ho gaya. Please try again.'
-        : 'Location request timed out. Please try again.',
-      fetch: lang === 'hi'
-        ? 'Weather data abhi fetch nahin ho pa raha hai.'
-        : 'Weather data could not be fetched right now.',
-    };
-
-    if (!navigator.geolocation) {
-      setWeatherError(weatherMessages.unsupported);
-      return;
-    }
-
-    const isLocalhost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-    if (!window.isSecureContext && !isLocalhost) {
-      setWeatherError(weatherMessages.insecure);
-      return;
-    }
-
-    setLocLoading(true);
-
-    navigator.geolocation.getCurrentPosition(async (position) => {
-      const { latitude, longitude } = position.coords;
-      try {
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
         const lat = latitude.toFixed(4);
         const lon = longitude.toFixed(4);
-
-        // FIX: Open-Meteo only allows past_days 0–93. The previous value of 365
-        // caused a 400 error. We now fetch 92 days and extrapolate to an annual
-        // estimate using: (period_total / days_received) * 365
-        const PAST_DAYS = 92;
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m&daily=precipitation_sum&past_days=${PAST_DAYS}&forecast_days=1&timezone=auto`;
-
-        let response;
         try {
-          response = await fetch(url);
-        } catch (networkErr) {
-          throw new Error(`Network error: ${networkErr.message}`);
+          // --- Step 1: Current temperature via wttr.in (very generous rate limits) ---
+          const wttrRes = await fetch(
+            `https://wttr.in/${lat},${lon}?format=j1`,
+            { headers: { 'Accept': 'application/json' } }
+          );
+          if (!wttrRes.ok) throw new Error(`Weather service error: ${wttrRes.status}`);
+          const wttrData = await wttrRes.json();
+          const currentTemp = parseFloat(wttrData.current_condition?.[0]?.temp_C ?? null);
+          if (isNaN(currentTemp)) throw new Error('Temperature data unavailable');
+
+          // --- Step 2: Annual rainfall via Open-Meteo Archive API (separate quota, not forecast) ---
+          // Uses the historical climate archive endpoint which has independent rate limits
+          const today = new Date();
+          const endDate = today.toISOString().slice(0, 10);
+          const startDate = new Date(today.setFullYear(today.getFullYear() - 1))
+            .toISOString().slice(0, 10);
+
+          const archiveUrl = new URL('https://archive-api.open-meteo.com/v1/archive');
+          archiveUrl.searchParams.set('latitude', lat);
+          archiveUrl.searchParams.set('longitude', lon);
+          archiveUrl.searchParams.set('start_date', startDate);
+          archiveUrl.searchParams.set('end_date', endDate);
+          archiveUrl.searchParams.set('daily', 'precipitation_sum');
+          archiveUrl.searchParams.set('timezone', 'auto');
+
+          const archiveRes = await fetch(archiveUrl.toString());
+          let annualRainfall = 0;
+          if (archiveRes.ok) {
+            const archiveData = await archiveRes.json();
+            const dailyPrecip = archiveData.daily?.precipitation_sum ?? [];
+            annualRainfall = Math.round(
+              dailyPrecip.filter(v => v != null).reduce((sum, v) => sum + v, 0)
+            );
+          }
+          // If archive also fails, annualRainfall stays 0 — user can edit manually
+
+          setFormData(prev => ({
+            ...prev,
+            temperature: parseFloat(currentTemp.toFixed(1)),
+            rainfall: annualRainfall,
+          }));
+        } catch (err) {
+          setWeatherError(lang === 'hi'
+            ? `मौसम डेटा प्राप्त नहीं हुआ: ${err.message}`
+            : `Could not fetch weather data: ${err.message}`);
+        } finally {
+          setDetecting(false);
         }
-
-        if (!response.ok) {
-          const errText = await response.text().catch(() => String(response.status));
-          throw new Error(`API ${response.status}: ${errText}`);
-        }
-
-        const payload = await response.json();
-        const temperature = payload?.current?.temperature_2m;
-        const dailyRain = payload?.daily?.precipitation_sum;
-
-        // Sum the days we actually received, then extrapolate to annual (365 days)
-        let rainfall = null;
-        if (Array.isArray(dailyRain) && dailyRain.length > 0) {
-          const actualDays = dailyRain.length;
-          const periodTotal = dailyRain.reduce((sum, v) => sum + (v ?? 0), 0);
-          rainfall = Math.round((periodTotal / actualDays) * 365);
-        }
-
-        if (typeof temperature !== 'number' && rainfall === null) {
-          throw new Error(`Incomplete data from API`);
-        }
-
-        setFormData(prev => ({
-          ...prev,
-          temperature: typeof temperature === 'number'
-            ? Math.round(temperature * 10) / 10
-            : prev.temperature,
-          rainfall: rainfall !== null ? rainfall : prev.rainfall,
-        }));
-      } catch (err) {
-        console.error("Weather fetch error:", err);
-        setWeatherError(`${weatherMessages.fetch} [${err.message}]`);
-      } finally {
-        setLocLoading(false);
-      }
-    }, (geoError) => {
-      if (geoError?.code === geoError.PERMISSION_DENIED) setWeatherError(weatherMessages.denied);
-      else if (geoError?.code === geoError.TIMEOUT) setWeatherError(weatherMessages.timeout);
-      else setWeatherError(weatherMessages.unavailable);
-      setLocLoading(false);
-    }, {
-      enableHighAccuracy: false,
-      timeout: 10000,
-      maximumAge: 300000,
-    });
+      },
+      (err) => {
+        setDetecting(false);
+        setWeatherError(lang === 'hi'
+          ? `स्थान प्राप्त नहीं हुआ: ${err.message}`
+          : `Location access denied: ${err.message}`);
+      },
+      { timeout: 10000 }
+    );
   };
 
   const handleSubmit = async (e) => {
@@ -394,18 +367,25 @@ export default function App() {
               <div className="flex justify-between items-center mb-4">
                 <span className="text-xs font-semibold text-amber-100/80 uppercase tracking-wider">Weather Data</span>
                 <button
-                  type="button" onClick={fetchWeatherAndLocation} disabled={locLoading}
+                  type="button" onClick={fetchWeatherAndLocation} disabled={detecting}
                   className="flex items-center gap-1.5 text-[10px] font-medium bg-yellow-900/20 hover:bg-yellow-900/40 text-yellow-500 py-1.5 px-3 rounded-full border border-yellow-700/50 transition-colors disabled:opacity-50"
                 >
-                  <MapPin className="w-3 h-3" />
-                  {locLoading ? t.detecting : t.autoDetect}
+                  {detecting
+                    ? <><span className="w-3 h-3 border-2 border-yellow-500/30 border-t-yellow-500 rounded-full animate-spin inline-block" />{t.detecting}</>
+                    : <><MapPin className="w-3 h-3" />{t.autoDetect}</>
+                  }
                 </button>
               </div>
+              {weatherError && (
+                <p className="text-[10px] text-red-400/80 mb-3 flex items-start gap-1">
+                  <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />{weatherError}
+                </p>
+              )}
               <NumberInput label={t.rainfall} name="rainfall" step="1" value={formData.rainfall} onChange={handleChange} unit={t.mmYr} />
               <NumberInput label={t.temperature} name="temperature" step="0.1" value={formData.temperature} onChange={handleChange} unit="°C" />
             </div>
 
-            {weatherError && <p className="-mt-2 text-[11px] text-red-300/80">{weatherError}</p>}
+
             <NumberInput label={t.fertilizer} name="fertilizer" step="1" value={formData.fertilizer} onChange={handleChange} unit={t.kgHa} />
             <NumberInput label={t.pesticide} name="pesticide" step="0.1" value={formData.pesticide} onChange={handleChange} unit={t.kgHa} />
             <NumberInput label={t.area} name="area" step="0.1" value={formData.area} onChange={handleChange} unit={t.ha} />
